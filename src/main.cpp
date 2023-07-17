@@ -3,7 +3,6 @@
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
-#include <HTTPClient.h>
 #include <InfluxDbClient.h>
 #include <InfluxDbCloud.h>
 
@@ -14,7 +13,7 @@
 #define INFLUXDB_BUCKET ""
 
 // Time zone info
-#define TZ_INFO "UTC2"
+#define TZ_INFO "UTC-2"
 
 // Declare InfluxDB client instance with preconfigured InfluxCloud certificate
 InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, InfluxDbCloud2CACert);
@@ -25,6 +24,12 @@ Point sensor("environment");
 // Wi-Fi credentials
 const char* ssid = "";
 const char* password = "";
+
+// MQ135 data variables
+int mqData = 0;
+
+WiFiServer server(80);
+
 
 // initialize the BME280 sensor object
 Adafruit_BME280 bme;
@@ -69,9 +74,36 @@ void setup() {
       Serial.print("InfluxDB connection failed: ");
       Serial.println(client.getLastErrorMessage());
     }
+
+  // Start the server
+  server.begin();
 }
 
 void loop() {
+  // Check for incoming client connections
+  WiFiClient wifiClient = server.available();
+  Serial.println(wifiClient);
+  if (wifiClient) {
+    // Wait for data from the client
+    while (wifiClient.connected() && !wifiClient.available()) {
+      delay(1);
+    }
+
+    // Read the HTTP request
+    String request = wifiClient.readString();
+    Serial.println(request);
+
+    // Extract MQ135 data from the request
+    int index = request.indexOf("mq_data=");
+    if (index != -1) {
+      String mqDataString = request.substring(index + 8);
+      mqData = mqDataString.toInt();
+    }
+
+    // Close the connection
+    wifiClient.stop();
+  }
+
   float temperature = bme.readTemperature();
   float pressure = bme.readPressure() / 100.0F;
   float humidity = bme.readHumidity();
@@ -81,7 +113,8 @@ void loop() {
   sensor.addField("temperature", temperature);
   sensor.addField("pressure", pressure);
   sensor.addField("humidity", humidity);
-
+  sensor.addField("air_index", mqData);
+  
   Serial.println(sensor.toLineProtocol());
 
 
