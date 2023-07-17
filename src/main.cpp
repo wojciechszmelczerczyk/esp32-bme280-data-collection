@@ -30,7 +30,6 @@ int mqData = 0;
 
 WiFiServer server(80);
 
-
 // initialize the BME280 sensor object
 Adafruit_BME280 bme;
 
@@ -82,7 +81,7 @@ void setup() {
 void loop() {
   // Check for incoming client connections
   WiFiClient wifiClient = server.available();
-  Serial.println(wifiClient);
+
   if (wifiClient) {
     // Wait for data from the client
     while (wifiClient.connected() && !wifiClient.available()) {
@@ -91,7 +90,6 @@ void loop() {
 
     // Read the HTTP request
     String request = wifiClient.readString();
-    Serial.println(request);
 
     // Extract MQ135 data from the request
     int index = request.indexOf("mq_data=");
